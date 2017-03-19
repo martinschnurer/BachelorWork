@@ -75,11 +75,28 @@ def splitSentences(sentences, train_fd, validation_fd, test_fd=None, shuffleData
     assert len(train_sentences) + len(validation_sentences) + len(test_sentences) == len(sentences)
 
     for s in train_sentences:
-        train_fd.write("{}\n{}\n".format(s[0],s[1]))
+        for w in s[0]:
+            train_fd.write("{} ".format(w))
+        train_fd.write('\n')
+        for wt in s[1]:
+            train_fd.write("{} ".format(wt))
+        train_fd.write('\n')
+
     for s in validation_sentences:
-        validation_fd.write("{}\n{}\n".format(s[0],s[1]))
+        for w in s[0]:
+            validation_fd.write("{} ".format(w))
+        validation_fd.write('\n')
+        for wt in s[1]:
+            validation_fd.write("{} ".format(wt))
+        validation_fd.write('\n')
+
     for s in test_sentences:
-        test_fd.write("{}\n{}\n".format(s[0],s[1]))
+        for w in s[0]:
+            test_fd.write("{} ".format(w))
+        test_fd.write('\n')
+        for wt in s[1]:
+            test_fd.write("{} ".format(wt))
+        test_fd.write('\n')
 
     return True
 
