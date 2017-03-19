@@ -34,8 +34,6 @@ def getSentence(file, tokens, randomSeek=False):
         rand_seek(file)
 
     # find nearest start of sentence, which is <s>
-
-    line = '-'
     while True:
         line = file.readline().rstrip()
         if '<s>' in line:
@@ -54,9 +52,17 @@ def getSentence(file, tokens, randomSeek=False):
     return sentence, target
 
 
-dataset_file = open('../data/wiki-2014-02.ver')
+train_dataset = open('../data/parsers/test/1', 'r')
+validation_dataset = open('../data/parsers/test/2', 'r')
+test_dataset = open('../data/parsers/test/3', 'r')
+
+# get tokens dictionary
 tokens = getTokens()
 
+
+print(getSentence(train_dataset, tokens))
+
+exit(0)
 
 
 num_hidden = 32
@@ -96,7 +102,7 @@ init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 
-model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
+#model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
 
 
 total_words = 0
@@ -112,7 +118,7 @@ with tf.Session() as sess:
 
 
     for a in range(60000):
-        words, trg = getSentence(dataset_file, tokens, randomSeek=False)
+        words, trg = getSentence(train_dataset, tokens, randomSeek=False)
         # print(words, "\n", target)
 
         # MA TO BYT tensor [1,None,80] a target ONE_HOT [words_count, 19]
@@ -135,7 +141,7 @@ with tf.Session() as sess:
             err, _ = sess.run([cross_entropy, minimize], {data:data_x, target:data_y})
             saver.save(sess, 'saved/{}hidden/model'.format(num_hidden))
 
-            words, trg = getSentence(dataset_file, tokens, randomSeek=False)
+            words, trg = getSentence(train_dataset, tokens, randomSeek=False)
 
             total_words = total_words + len(trg)
 
