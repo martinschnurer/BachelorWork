@@ -1,10 +1,18 @@
-import sys, os
+import sys, os, signal
 import tensorflow as tf
 import numpy as np
-import os
 import random as rand
 from datetime import datetime
 from gensim.models import word2vec
+
+WORD_VEC_SIZE = 80
+
+model = 0
+# def signal_handler(signal, frame):
+#         print('You pressed Ctrl+C!')
+#         sys.exit(0)
+#
+# signal.signal(signal.SIGINT, signal_handler)
 
 def getTokens():
     tokens = {}
@@ -17,6 +25,7 @@ def getTokens():
             tokens[arr[0]]['number'] = int(arr[2])
     return tokens
 
+
 def rand_seek(file):
     rand.seed(datetime.now())
     statinfo = os.stat(file.fileno())
@@ -27,29 +36,54 @@ def rand_seek(file):
     except:
         file.seek(0)
 
-def getSentence(file, tokens, randomSeek=False):
-    sentence, target = [], []
 
-    if randomSeek:
-        rand_seek(file)
+def oneHot(which):
+    which = which - 1
+    vec = [0] * 19
+    vec[which] = 1
+    return vec
 
-    # find nearest start of sentence, which is <s>
-    while True:
-        line = file.readline().rstrip()
-        if '<s>' in line:
-            break
 
-    line = ''
-    while True:
-        line = file.readline().rstrip()
-        if '</s>' in line:
-            break
-        else:
-            line = line.split('\t')
-            sentence.append(line[0])
-            target.append(tokens[line[2][0]]['number'])
+def getSentence(file, tokens, model, words_as_vectors=True, target_as_vectors=True):
+    sentence = file.readline().rstrip().rstrip().split()
 
-    return sentence, target
+    if words_as_vectors:
+        new_vector = []
+        for w in sentence:
+            new_vector.append(getWordEmbedding(w, model))
+        sentence = new_vector
+
+    targets = list(map(int,file.readline().rstrip().rstrip().split()))
+    if target_as_vectors:
+        targets = list(map(oneHot,targets)) # converts on one hot encoded vector
+
+    return sentence, targets
+
+
+def getWordEmbedding(word, model):
+    if word in model:
+        return model[word]
+    else:
+        return [0] * WORD_VEC_SIZE
+
+
+"""
+first argument = file descriptor for validate dataset
+second argument = actual lowest recorded error on validation dataset
+
+returns tuple (Bool, value) => bool if is overtrained, and value of actual error
+"""
+def isOvertrained(validate_fd, tokens, actual_lowest, sess, tf_cross_entropy, model, howmany=1000):
+    error_sum = 0
+
+    for i in range(howmany):
+        wrd,trg = getSentence(validate_fd, tokens ,model)
+        wrd = [wrd]
+        error_sum = error_sum + sess.run(tf_cross_entropy, {data: wrd, target: trg})
+
+    if error_sum < actual_lowest:
+        return False, error_sum
+    return True, actual_lowest
 
 
 train_dataset = open('../data/parsers/test/1', 'r')
@@ -60,16 +94,22 @@ test_dataset = open('../data/parsers/test/3', 'r')
 tokens = getTokens()
 
 
-print(getSentence(train_dataset, tokens))
+# model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
+# isOvertrained(validation_dataset, tokens, 0, 0, model)
+# print(getSentence(validation_dataset, tokens))
+# print(getSentence(train_dataset, tokens))
+# print(getSentence(train_dataset, tokens))
+# print(getSentence(train_dataset, tokens))
+
 
 exit(0)
 
 
 num_hidden = 32
-save_dir = "saved/{}hidden".format(num_hidden)
-save_path = "saved/{}hidden/model".format(num_hidden)
+save_dir = "saved_with_validation/{}hidden".format(num_hidden)
+save_path = "saved_with_validation/{}hidden/model".format(num_hidden)
 
-# [batch_size, sequence_length, size_of_vector]
+# [ batch_size, sequence_length, size_of_vector ]
 data = tf.placeholder(tf.float32, [1, None, 80])
 target = tf.placeholder(tf.float32, [None, 19])
 
@@ -111,54 +151,30 @@ correct_words = 0
 
 with tf.Session() as sess:
     try:
-        saver.restore(sess, 'saved/{}hidden/model'.format(num_hidden))
+        saver.restore(sess, 'saved_with_validation/{}hidden/model'.format(num_hidden))
     except:
         print("exception")
         sess.run(init)
 
 
+    max_error = sys.maxsize
     for a in range(60000):
         words, trg = getSentence(train_dataset, tokens, randomSeek=False)
-        # print(words, "\n", target)
+        words = [words]
 
-        # MA TO BYT tensor [1,None,80] a target ONE_HOT [words_count, 19]
-        data_x = [[]]
-        data_y = []
-        for abc in range(len(trg)):
-            data_y.append([0] * 19)
-
-        for w in words:
-            if model.__contains__(w):
-                data_x[0].append(model[w].tolist())
-            else:
-                data_x[0].append([0] * 80)
-
-        for t in range(len(trg)):
-            data_y[t][trg[t] - 1] = 1
+        sess.run(minimize, {data: words, target: trg})
 
 
-        if a % 100 == 0:
-            err, _ = sess.run([cross_entropy, minimize], {data:data_x, target:data_y})
-            saver.save(sess, 'saved/{}hidden/model'.format(num_hidden))
+        if (a+1) % 100 == 0:
+
+
+            # isOvertrained(validate_fd, tokens, actual_lowest, tf_prediction, model):
+
+            overtrained, max_error = isOvertrained(validation_fd, tokens, max_error, sess, cross_entropy, model)
+
+            saver.save(sess, 'saved_with_validation/{}hidden/model'.format(num_hidden))
 
             words, trg = getSentence(train_dataset, tokens, randomSeek=False)
-
-            total_words = total_words + len(trg)
-
-            data_x = [[]]
-            data_y = []
-
-            for abc in range(len(trg)):
-                data_y.append([0] * 19)
-
-            for w in words:
-                if model.__contains__(w):
-                    data_x[0].append(model[w].tolist())
-                else:
-                    data_x[0].append([0] * 80)
-
-            for t in range(len(trg)):
-                data_y[t][trg[t] - 1] = 1
 
             test_prediction = sess.run(prediction, {data:data_x})
 
