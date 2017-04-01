@@ -45,7 +45,9 @@ def oneHot(which):
 
 
 def getSentence(file, tokens, model, words_as_vectors=True, target_as_vectors=True):
-    sentence = file.readline().rstrip().rstrip().split()
+    sentence = file.readline().rstrip().rstrip().split('\t')
+
+    # print(sentence)
 
     if words_as_vectors:
         new_vector = []
@@ -53,9 +55,14 @@ def getSentence(file, tokens, model, words_as_vectors=True, target_as_vectors=Tr
             new_vector.append(getWordEmbedding(w, model))
         sentence = new_vector
 
-    targets = list(map(int,file.readline().rstrip().rstrip().split()))
+    targets = file.readline().rstrip().rstrip().split()
+    # print(targets)
+    targets = list(map(int, targets ))
+
     if target_as_vectors:
         targets = list(map(oneHot,targets)) # converts on one hot encoded vector
+
+
 
     return sentence, targets
 
@@ -73,11 +80,12 @@ second argument = actual lowest recorded error on validation dataset
 
 returns tuple (Bool, value) => bool if is overtrained, and value of actual error
 """
+# isOvertrained(validation_dataset, tokens, max_error, sess, cross_entropy, model)
 def isOvertrained(validate_fd, tokens, actual_lowest, sess, tf_cross_entropy, model, howmany=1000):
     error_sum = 0
 
     for i in range(howmany):
-        wrd,trg = getSentence(validate_fd, tokens ,model)
+        wrd, trg = getSentence(validate_fd, tokens, model)
         wrd = [wrd]
         error_sum = error_sum + sess.run(tf_cross_entropy, {data: wrd, target: trg})
 
@@ -102,7 +110,6 @@ tokens = getTokens()
 # print(getSentence(train_dataset, tokens))
 
 
-exit(0)
 
 
 num_hidden = 32
@@ -142,7 +149,7 @@ init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 
-#model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
+model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
 
 
 total_words = 0
@@ -159,32 +166,35 @@ with tf.Session() as sess:
 
     max_error = sys.maxsize
     for a in range(60000):
-        words, trg = getSentence(train_dataset, tokens, randomSeek=False)
+        words, trg = getSentence(train_dataset, tokens, model)
         words = [words]
 
+        # print(words)
+        # print(trg)
+
         sess.run(minimize, {data: words, target: trg})
+        # print(some_err)
 
+        if (a+1) % 1000 == 0:
 
-        if (a+1) % 100 == 0:
+            # error_sum = 0
+            # can_be_saved = False
+            # for i in range(1000):
+            #     wrd, trg = getSentence(train_dataset, tokens, model)
+            #     wrd = [wrd]
+            #     ce_error = sess.run(cross_entropy, {data: wrd, target: trg})
+            #     error_sum = error_sum + ce_error
+            #
+            # if error_sum < max_error:
+            #     max_error = error_sum
+            #     can_be_saved = True
 
+            overtrained, max_error = isOvertrained(train_dataset, tokens, max_error, sess, cross_entropy, model)
 
-            # isOvertrained(validate_fd, tokens, actual_lowest, tf_prediction, model):
+            if not overtrained:
+                print("model can be saved with error = {}".format(max_error))
+                saver.save(sess, 'saved_with_validation/{}hidden/model'.format(num_hidden))
+            else:
+                print("overtrained detected - {}".format(max_error))
 
-            overtrained, max_error = isOvertrained(validation_fd, tokens, max_error, sess, cross_entropy, model)
-
-            saver.save(sess, 'saved_with_validation/{}hidden/model'.format(num_hidden))
-
-            words, trg = getSentence(train_dataset, tokens, randomSeek=False)
-
-            test_prediction = sess.run(prediction, {data:data_x})
-
-            output_ = []
-            for out_ in test_prediction:
-                output_.append(np.argmax(out_) + 1)
-
-
-            for a in range(len(trg)):
-                if trg[a] == output_[a] :
-                    correct_words = correct_words + 1
-
-            print(correct_words * 100 / total_words)
+            # print(max_error)

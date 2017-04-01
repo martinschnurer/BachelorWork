@@ -76,7 +76,7 @@ def splitSentences(sentences, train_fd, validation_fd, test_fd=None, shuffleData
 
     for s in train_sentences:
         for w in s[0]:
-            train_fd.write("{} ".format(w))
+            train_fd.write("{}\t".format(w))
         train_fd.write('\n')
         for wt in s[1]:
             train_fd.write("{} ".format(wt))
@@ -84,7 +84,7 @@ def splitSentences(sentences, train_fd, validation_fd, test_fd=None, shuffleData
 
     for s in validation_sentences:
         for w in s[0]:
-            validation_fd.write("{} ".format(w))
+            validation_fd.write("{}\t".format(w))
         validation_fd.write('\n')
         for wt in s[1]:
             validation_fd.write("{} ".format(wt))
@@ -92,7 +92,7 @@ def splitSentences(sentences, train_fd, validation_fd, test_fd=None, shuffleData
 
     for s in test_sentences:
         for w in s[0]:
-            test_fd.write("{} ".format(w))
+            test_fd.write("{}\t".format(w))
         test_fd.write('\n')
         for wt in s[1]:
             test_fd.write("{} ".format(wt))
