@@ -2,21 +2,20 @@ import sys, os
 import tensorflow as tf
 import numpy as np
 from definedChars.charDict import CharDictionary
-import os
 import random as rand
 from datetime import datetime
 
-dataset_path = '../data/wiki-2014-02.ver'
-is_ascii = lambda s: len(s) == len(s.encode())
+DATASET_PATH = os.path.join(os.path.dirname(__file__), '../data/wiki-2014-02.ver')
+VYZNAM_TOKENOV = os.path.join(os.path.dirname(__file__), '../tokeny_vyznam.csv')
 
+is_ascii = lambda s: len(s) == len(s.encode())
 
 
 def getTokens():
     tokens = {}
-    with open('../tokeny_vyznam') as f:
+    with open(VYZNAM_TOKENOV) as f:
         for line in f:
-            arr = line.split('-')
-            # print(arr)
+            arr = line.split(',')
             arr[-1] = arr[-1].strip()
             tokens[arr[0]] = { 'name':'', 'number' : -1}
             tokens[arr[0]]['name'] = arr[1]
@@ -30,6 +29,7 @@ def getVectorFromWord(word, charDict):
         char_vec = charDict.getVector(char)
         vec.append(char_vec)
     return vec
+
 
 def rand_seek(file):
     rand.seed(datetime.now())
@@ -88,7 +88,7 @@ charDict = CharDictionary()
 tokens = getTokens()
 
 # Open dataset for reading words from file
-dataset = open(dataset_path)
+dataset = open(DATASET_PATH)
 
 
 
@@ -166,7 +166,6 @@ if '--get-tag' in sys.argv:
     exit(1)
 
 #----------------------------------------
-
 if '--performance' in sys.argv:
     successful_marked = 0
     total = 10000
@@ -189,8 +188,47 @@ if '--performance' in sys.argv:
         exit(1)
 #----------------------------------------
 
-with tf.Session() as sess:
 
+'''
+@function charTaggingGraph Create Graph, then returns multiplications
+    which will be useful for merging with word_pos_tagging and mix into final
+    layer
+@args
+    input Is used for data placeholder
+    target Is used for learning
+@returns MULTIPLICATION Multiplication will
+'''
+def charTaggingGraph(input, target):
+    # [batch_size, sequence_length, size_of_vector]
+    cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
+
+    val, state = tf.nn.dynamic_rnn(
+    	cell,
+    	data,
+    	dtype=tf.float32
+    	)
+
+    transposed = tf.transpose(val, [1, 0, 2])
+    last = tf.gather(transposed, tf.shape(val)[1] - 1)
+
+    weight = tf.Variable(tf.truncated_normal([num_hidden, int(target.get_shape()[1])]), name='weights')
+    bias = tf.Variable(tf.constant(0.1, shape=[target.get_shape()[1]]), name='biases')
+
+    multiplication = tf.matmul(last, weight) + bias
+
+    prediction = tf.nn.softmax(multiplication)
+    cross_entropy = -tf.reduce_sum(target * tf.log(prediction))
+
+    optimizer = tf.train.AdamOptimizer(0.01)
+    minimize = optimizer.minimize(cross_entropy)
+
+    mistakes = tf.not_equal(tf.argmax(target, 1), tf.argmax(prediction, 1))
+    error = tf.reduce_mean(tf.cast(mistakes, tf.float32))
+
+    return multiplication
+
+
+with tf.Session() as sess:
     try:
         saver.restore(sess, 'saved/{}hidden/model'.format(num_hidden))
     except:

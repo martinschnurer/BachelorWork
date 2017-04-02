@@ -1,0 +1,19 @@
+S,Substantíva,1
+A,Adjektíva,2
+P,Pronominá,3
+N,Numeráliá,4
+V,Verbá,5
+D,Adverbiá,6
+E,Predlozky,7
+O,Spojky,8
+T,Castice,9
+J,Citoslovcia,10
+R,sa/si,11
+Y,Kondicionálová morféma,12
+G,Formálne particípiá,13
+Z,Interpunkcia,14
+W,Abreviácie a značky,15
+Q,Neurčiteľný slovny druh,16
+#,Neslovný element,17
+%,Citátový výraz,18
+0,Číslice,19

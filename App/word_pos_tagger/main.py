@@ -6,19 +6,25 @@ from datetime import datetime
 from gensim.models import word2vec
 
 WORD_VEC_SIZE = 80
+VYZNAM_TOKENOV = os.path.join(os.path.dirname(__file__), '../tokeny_vyznam.csv')
+MODEL_CBOW = os.path.join(os.path.dirname(__file__), '../model/80cbow.bin')
+TRAIN_DATASET_PATH = os.path.join(os.path.dirname(__file__), '../data/parsers/test/1')
+VALIDATION_DATASET_PATH = os.path.join(os.path.dirname(__file__), '../data/parsers/test/2')
+TEST_DATASET_PATH = os.path.join(os.path.dirname(__file__), '../data/parsers/test/3')
+
+#
+# train_dataset = open('../data/parsers/test/1', 'r')
+# validation_dataset = open('../data/parsers/test/2', 'r')
+# test_dataset = open('../data/parsers/test/3', 'r')
 
 model = 0
-# def signal_handler(signal, frame):
-#         print('You pressed Ctrl+C!')
-#         sys.exit(0)
-#
-# signal.signal(signal.SIGINT, signal_handler)
+
 
 def getTokens():
     tokens = {}
-    with open('../tokeny_vyznam') as f:
+    with open(VYZNAM_TOKENOV) as f:
         for line in f:
-            arr = line.split('-')
+            arr = line.split(',')
             arr[-1] = arr[-1].strip()
             tokens[arr[0]] = { 'name':'', 'number' : -1}
             tokens[arr[0]]['name'] = arr[1]
@@ -94,22 +100,12 @@ def isOvertrained(validate_fd, tokens, actual_lowest, sess, tf_cross_entropy, mo
     return True, actual_lowest
 
 
-train_dataset = open('../data/parsers/test/1', 'r')
-validation_dataset = open('../data/parsers/test/2', 'r')
-test_dataset = open('../data/parsers/test/3', 'r')
+train_dataset = open(TRAIN_DATASET_PATH, 'r')
+validation_dataset = open(VALIDATION_DATASET_PATH, 'r')
+test_dataset = open(TEST_DATASET_PATH, 'r')
 
 # get tokens dictionary
 tokens = getTokens()
-
-
-# model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
-# isOvertrained(validation_dataset, tokens, 0, 0, model)
-# print(getSentence(validation_dataset, tokens))
-# print(getSentence(train_dataset, tokens))
-# print(getSentence(train_dataset, tokens))
-# print(getSentence(train_dataset, tokens))
-
-
 
 
 num_hidden = 32
@@ -134,9 +130,9 @@ val, state = tf.nn.dynamic_rnn(
 weight = tf.Variable(tf.truncated_normal([num_hidden, 19]), name='weights')
 bias = tf.Variable(tf.constant(0.1, shape=[19], name='biases'))
 
-multiplication = tf.matmul(tf.reshape(val,[tf.shape(data)[1], num_hidden]) , weight)
+multiplication = tf.matmul(tf.reshape(val,[tf.shape(data)[1], num_hidden]), weight)
 
-prediction = tf.nn.softmax(multiplication)
+prediction = tf.nn.softmax(multiplication + bias)
 cross_entropy = -tf.reduce_sum(target * tf.log(prediction))
 
 optimizer = tf.train.AdamOptimizer(0.01)
@@ -149,7 +145,7 @@ init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 
-model = word2vec.Word2Vec.load_word2vec_format('../model/80cbow.bin', binary=True)
+model = word2vec.Word2Vec.load_word2vec_format(MODEL_CBOW, binary=True)
 
 
 total_words = 0
