@@ -27,6 +27,7 @@ def getTokens():
     return tokens
 
 
+# DEPRECATED
 def rand_seek(file):
     rand.seed(datetime.now())
     statinfo = os.stat(file.fileno())
@@ -45,6 +46,7 @@ def oneHot(which, size=19):
     return vec
 
 
+# DEPRECATED
 def getSentence(file, tokens, model, words_as_vectors=True, target_as_vectors=True):
     sentence = file.readline().rstrip().rstrip().split('\t')
 
@@ -65,7 +67,7 @@ def getSentence(file, tokens, model, words_as_vectors=True, target_as_vectors=Tr
 
     return sentence, targets
 
-
+# MOVED
 def getWordEmbedding(word, model):
     if word in model:
         return model[word]
@@ -86,12 +88,11 @@ def isOvertrained(validate_fd, tokens, actual_lowest, sess, tf_cross_entropy, mo
     for i in range(howmany):
         wrd, trg = getSentence(validate_fd, tokens, model)
         wrd = [wrd]
-        error_sum = error_sum + sess.run(tf_cross_entropy, {data: wrd, target: trg})
+        error_sum += sess.run(tf_cross_entropy, {data: wrd, target: trg})
 
     if error_sum < actual_lowest:
         return False, error_sum
     return True, actual_lowest
-
 
 
 num_hidden = 32

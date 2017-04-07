@@ -8,7 +8,6 @@ TRAIN_DATASET_PATH = os.path.join(os.path.dirname(__file__), 'data/parsers/test/
 VALIDATION_DATASET_PATH = os.path.join(os.path.dirname(__file__), 'data/parsers/test/2')
 TEST_DATASET_PATH = os.path.join(os.path.dirname(__file__), 'data/parsers/test/3')
 
-
 TOKENS = getTokens()
 WORD_VEC_SIZE = 80
 
