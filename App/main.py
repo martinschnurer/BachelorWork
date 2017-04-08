@@ -1,3 +1,4 @@
+import os, sys
 import tensorflow as tf
 import numpy as np
 import getTokens as tokensGetter
@@ -10,6 +11,8 @@ from gensim.models import word2vec
 from definedChars.charDict import CharDictionary
 from OvertrainDetector import OvertrainDetector
 
+
+
 print('--------------------------')
 print('Modules loaded successfuly')
 
@@ -21,13 +24,13 @@ DS = Dataset(model=model)
 # None - pocet slov, neviem
 # None - maximalny pocet pismen -> tiez neviem aky bude najvacsi pocet pismen vo vete
 # Ale viem aky bude embedding
-char_inp = tf.placeholder(shape=[None, None, charDict.len], dtype=tf.float32)
+char_inp = tf.placeholder(shape=[None, None, charDict.len], dtype=tf.float32, name='char_inp')
 char_multiplication = charTagger.charTaggingGraph(char_inp)
 
-word_inp = tf.placeholder(shape=[1, None, 80], dtype=tf.float32)
+word_inp = tf.placeholder(shape=[1, None, 80], dtype=tf.float32, name='word_inp')
 word_multiplication = wordGraph.wordPosTagger(word_inp)
 
-target = tf.placeholder(tf.float32, [None, 19])
+target = tf.placeholder(tf.float32, [None, 19], name='target')
 
 
 final_addition = word_multiplication + char_multiplication
@@ -46,8 +49,8 @@ init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 
-
 with tf.Session() as sess:
+
 
     try:
         saver.restore(sess, 'saved/32hidden/model')
