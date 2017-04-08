@@ -13,7 +13,7 @@ WORD_VEC_SIZE = 80
 
 
 class Dataset:
-    def __init__(self, file_dataset=None, model = None):
+    def __init__(self, file_dataset=None, model=None):
         # dataset file and word2vec model
         self.file_dataset = file_dataset if file_dataset else open(TRAIN_DATASET_PATH, 'r')
         self.model = model

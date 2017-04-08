@@ -11,7 +11,8 @@ from gensim.models import word2vec
 from definedChars.charDict import CharDictionary
 from OvertrainDetector import OvertrainDetector
 
-
+# SLUZI pri kontrolovani overlearningu
+MIN_VALIDATION_ERROR = sys.maxsize
 
 print('--------------------------')
 print('Modules loaded successfuly')
@@ -19,6 +20,9 @@ print('Modules loaded successfuly')
 model = word2vec.Word2Vec.load_word2vec_format(MODEL_CBOW, binary=True)
 charDict = CharDictionary()
 DS = Dataset(model=model)
+
+validation_file = open('data/parsers/test/2', 'r')
+validation_DS = Dataset(model=model, file_dataset=validation_file)
 
 # [None, None, charDict.len]
 # None - pocet slov, neviem
@@ -49,8 +53,30 @@ init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 
-with tf.Session() as sess:
+def isOvertrained(sess, tf_cross_entropy, model_ref, validation_DS):
+    error_sum = 0
+    global MIN_VALIDATION_ERROR
 
+    for i in range(1000):
+        _charInput = validation_DS.getCharGraphInput()
+        _wordInput = validation_DS.getWordGraphInput()
+        _target = validation_DS.getTarget()
+
+        error_sum += sess.run(tf_cross_entropy, {
+                                        word_inp : _wordInput,
+                                        char_inp : _charInput,
+                                        target : _target
+                                    }
+                                )
+        validation_DS.loadNext()
+
+    if error_sum < MIN_VALIDATION_ERROR:
+        MIN_VALIDATION_ERROR = error_sum
+        return False
+    return True
+
+
+with tf.Session() as sess:
 
     try:
         saver.restore(sess, 'saved/32hidden/model')
@@ -60,7 +86,7 @@ with tf.Session() as sess:
         print('Initialize all variables')
 
 
-    detector = OvertrainDetector(sess, cross_entropy, model)
+    # detector = OvertrainDetector(sess, cross_entropy, model)
 
     for i in range(15000):
 
@@ -76,7 +102,8 @@ with tf.Session() as sess:
                                     }
                                 )
 
-        if i % 100 == 0 and not detector.overtrainDetected():
+        if i % 100 == 0 and not isOvertrained(sess, cross_entropy, model, validation_DS):
+            print('Not overtrained...saving model')
             saver.save(sess, 'saved/32hidden/model')
 
         if i % 25 == 0:
