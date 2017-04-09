@@ -2,6 +2,7 @@ import os, sys
 import tensorflow as tf
 import numpy as np
 import getTokens as tokensGetter
+from termcolor import colored
 
 import char_pos_tagger as charTagger
 import word_pos_tagger as wordGraph
@@ -14,6 +15,9 @@ from OvertrainDetector import OvertrainDetector
 # SLUZI pri kontrolovani overlearningu
 MIN_VALIDATION_ERROR = sys.maxsize
 
+TOTAL_WORDS = 0
+MISTAKEN_WORDS = 0
+
 print('--------------------------')
 print('Modules loaded successfuly')
 
@@ -23,6 +27,11 @@ DS = Dataset(model=model)
 
 validation_file = open('data/parsers/test/2', 'r')
 validation_DS = Dataset(model=model, file_dataset=validation_file)
+
+
+
+# VALIDATION_DS ERROR
+validation_dataset_error = tf.Variable(sys.maxsize, dtype=tf.float64)
 
 # [None, None, charDict.len]
 # None - pocet slov, neviem
@@ -49,13 +58,16 @@ minimize = optimizer.minimize(cross_entropy)
 mistakes = tf.not_equal(tf.argmax(target, 1), tf.argmax(prediction, 1))
 error = tf.reduce_mean(tf.cast(mistakes, tf.float32))
 
+
+prediction_max_arg = tf.argmax(prediction, axis=1)
+
 init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 
-def isOvertrained(sess, tf_cross_entropy, model_ref, validation_DS):
+def isOvertrained(sess, tf_cross_entropy, model_ref, validation_DS, tf_validation_error):
     error_sum = 0
-    global MIN_VALIDATION_ERROR
+    error_now = sess.run(tf_validation_error)
 
     for i in range(1000):
         _charInput = validation_DS.getCharGraphInput()
@@ -68,12 +80,21 @@ def isOvertrained(sess, tf_cross_entropy, model_ref, validation_DS):
                                         target : _target
                                     }
                                 )
+
+
         validation_DS.loadNext()
 
-    if error_sum < MIN_VALIDATION_ERROR:
-        MIN_VALIDATION_ERROR = error_sum
+    if error_sum < error_now:
+        sess.run(tf.assign(tf_validation_error, error_sum))
+
+        # is not overtrained
         return False
+
+    # is overtrained
     return True
+
+
+
 
 
 with tf.Session() as sess:
@@ -94,7 +115,7 @@ with tf.Session() as sess:
         _wordInput = DS.getWordGraphInput()
         _target = DS.getTarget()
 
-        actual_err, _ = sess.run([cross_entropy, minimize],
+        actual_err, _ , max_args = sess.run([cross_entropy, minimize, prediction_max_arg],
                                     {
                                         word_inp: _wordInput,
                                         char_inp: _charInput,
@@ -102,12 +123,23 @@ with tf.Session() as sess:
                                     }
                                 )
 
-        if i % 100 == 0 and not isOvertrained(sess, cross_entropy, model, validation_DS):
+        TOTAL_WORDS += np.array(_target).size
+        MISTAKEN_WORDS += np.not_equal(max_args, np.argmax(_target, axis=1)).astype(int).sum()
+
+        if i % 100 == 0 and not isOvertrained(sess, cross_entropy, model, validation_DS, validation_dataset_error):
             print('Not overtrained...saving model')
             saver.save(sess, 'saved/32hidden/model')
 
         if i % 25 == 0:
-            print(actual_err)
+            print('---------------------------------------------------')
+            print('Prediction is = {}'.format(max_args))
+            print('It should be = {}'.format(np.argmax(_target, axis=1)))
+            bad_words_predictions = np.not_equal(max_args, np.argmax(_target, axis=1)).astype(int).sum()
+            if bad_words_predictions:
+                print(colored('{} mistakes'.format(bad_words_predictions), 'red'))
+            else:
+                print(colored('0 mistakes', 'green'))
+            print('performance = {} %'.format(np.around(100 - MISTAKEN_WORDS*100/TOTAL_WORDS, decimals=5)))
 
         DS.loadNext()
 
